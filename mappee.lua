@@ -861,4 +861,3 @@ LocalPlayer.CharacterAdded:Connect(function(newCharacter)
 end)
 
 print("มึงจะรัน Script กูหาพ่อมึงหรอไอ่สัส กูให้มึงใช้ตอนไหน!")
-
