@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
 
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -12,235 +13,480 @@ local Settings = {
     FullbrightEnabled = false,
     TPWalkEnabled = false,
     TPWalkSpeed = 5,
-    OriginalAmbient = Lighting.Ambient,
-    OriginalBrightness = Lighting.Brightness,
-    OriginalClockTime = Lighting.ClockTime,
-    OriginalFogEnd = Lighting.FogEnd,
-    OriginalFogStart = Lighting.FogStart,
-    OriginalOutdoorAmbient = Lighting.OutdoorAmbient
+    NoClipEnabled = false,
+    InfiniteJumpEnabled = false,
+    OriginalValuesSaved = false,
+    OriginalAmbient = nil,
+    OriginalBrightness = nil,
+    OriginalClockTime = nil,
+    OriginalFogEnd = nil,
+    OriginalFogStart = nil,
+    OriginalOutdoorAmbient = nil,
+    OriginalEffects = {}
 }
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "FullbrightTPWalkGui"
+ScreenGui.Name = "AdvancedScriptGui"
 ScreenGui.Parent = game:GetService("CoreGui")
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 300, 0, 250)
-MainFrame.Position = UDim2.new(0.15, 0, 0.2, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MainFrame.Size = UDim2.new(0, 320, 0, 280)
+MainFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BackgroundTransparency = 0.1
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 
+local MainGradient = Instance.new("UIGradient")
+MainGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 40)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 25))
+})
+MainGradient.Rotation = 45
+MainGradient.Parent = MainFrame
+
 local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.CornerRadius = UDim.new(0, 12)
 UICorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(80, 80, 100)
+UIStroke.Thickness = 2
+UIStroke.Parent = MainFrame
+
+local DropShadow = Instance.new("ImageLabel")
+DropShadow.Name = "DropShadow"
+DropShadow.Size = UDim2.new(1, 10, 1, 10)
+DropShadow.Position = UDim2.new(0, -5, 0, -5)
+DropShadow.BackgroundTransparency = 1
+DropShadow.Image = "rbxassetid://6014261993"
+DropShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+DropShadow.ImageTransparency = 0.8
+DropShadow.ScaleType = Enum.ScaleType.Slice
+DropShadow.SliceCenter = Rect.new(49, 49, 450, 450)
+DropShadow.Parent = MainFrame
+
+local TitleBar = Instance.new("Frame")
+TitleBar.Name = "TitleBar"
+TitleBar.Size = UDim2.new(1, 0, 0, 35)
+TitleBar.Position = UDim2.new(0, 0, 0, 0)
+TitleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+TitleBar.BackgroundTransparency = 0.2
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local TitleBarGradient = Instance.new("UIGradient")
+TitleBarGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 60)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 35))
+})
+TitleBarGradient.Parent = TitleBar
+
+local TitleBarCorner = Instance.new("UICorner")
+TitleBarCorner.CornerRadius = UDim.new(0, 12)
+TitleBarCorner.Parent = TitleBar
 
 local Title = Instance.new("TextLabel")
 Title.Name = "Title"
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Title.BorderSizePixel = 0
-Title.Text = "Fullbright & TP Walk | Diablo"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 20
-Title.Font = Enum.Font.SourceSansBold
-Title.Parent = MainFrame
+Title.Size = UDim2.new(0.7, 0, 1, 0)
+Title.Position = UDim2.new(0.05, 0, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "DIABLO SCRIPT"
+Title.TextColor3 = Color3.fromRGB(220, 220, 255)
+Title.TextSize = 16
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TitleBar
 
-local TitleUICorner = Instance.new("UICorner")
-TitleUICorner.CornerRadius = UDim.new(0, 8)
-TitleUICorner.Parent = Title
+local CloseButton = Instance.new("TextButton")
+CloseButton.Name = "CloseButton"
+CloseButton.Size = UDim2.new(0, 25, 0, 25)
+CloseButton.Position = UDim2.new(0.9, 0, 0.14, 0)
+CloseButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+CloseButton.Text = "×"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextSize = 18
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Parent = TitleBar
 
-local Divider = Instance.new("Frame")
-Divider.Name = "Divider"
-Divider.Size = UDim2.new(0.9, 0, 0, 2)
-Divider.Position = UDim2.new(0.05, 0, 0.18, 0)
-Divider.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-Divider.BorderSizePixel = 0
-Divider.Parent = MainFrame
+local CloseButtonCorner = Instance.new("UICorner")
+CloseButtonCorner.CornerRadius = UDim.new(1, 0)
+CloseButtonCorner.Parent = CloseButton
 
-local FullbrightLabel = Instance.new("TextLabel")
-FullbrightLabel.Name = "FullbrightLabel"
-FullbrightLabel.Size = UDim2.new(0.5, 0, 0, 30)
-FullbrightLabel.Position = UDim2.new(0.05, 0, 0.22, 0)
-FullbrightLabel.BackgroundTransparency = 1
-FullbrightLabel.Text = "Fullbright"
-FullbrightLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-FullbrightLabel.TextSize = 18
-FullbrightLabel.Font = Enum.Font.SourceSansBold
-FullbrightLabel.TextXAlignment = Enum.TextXAlignment.Left
-FullbrightLabel.Parent = MainFrame
+local CloseButtonStroke = Instance.new("UIStroke")
+CloseButtonStroke.Color = Color3.fromRGB(150, 40, 40)
+CloseButtonStroke.Thickness = 1.5
+CloseButtonStroke.Parent = CloseButton
 
-local FullbrightButton = Instance.new("TextButton")
-FullbrightButton.Name = "FullbrightButton"
-FullbrightButton.Size = UDim2.new(0, 120, 0, 35)
-FullbrightButton.Position = UDim2.new(0.6, 0, 0.22, 0)
-FullbrightButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
-FullbrightButton.BorderSizePixel = 0
-FullbrightButton.Text = "OFF"
-FullbrightButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-FullbrightButton.TextSize = 18
-FullbrightButton.Font = Enum.Font.SourceSansBold
-FullbrightButton.Parent = MainFrame
+local MinimizeButton = Instance.new("TextButton")
+MinimizeButton.Name = "MinimizeButton"
+MinimizeButton.Size = UDim2.new(0, 25, 0, 25)
+MinimizeButton.Position = UDim2.new(0.8, 0, 0.14, 0)
+MinimizeButton.BackgroundColor3 = Color3.fromRGB(80, 80, 100)
+MinimizeButton.Text = "−"
+MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinimizeButton.TextSize = 20
+MinimizeButton.Font = Enum.Font.GothamBold
+MinimizeButton.Parent = TitleBar
 
-local FullbrightUICorner = Instance.new("UICorner")
-FullbrightUICorner.CornerRadius = UDim.new(0, 6)
-FullbrightUICorner.Parent = FullbrightButton
+local MinimizeButtonCorner = Instance.new("UICorner")
+MinimizeButtonCorner.CornerRadius = UDim.new(1, 0)
+MinimizeButtonCorner.Parent = MinimizeButton
 
-local TPWalkLabel = Instance.new("TextLabel")
-TPWalkLabel.Name = "TPWalkLabel"
-TPWalkLabel.Size = UDim2.new(0.5, 0, 0, 30)
-TPWalkLabel.Position = UDim2.new(0.05, 0, 0.4, 0)
-TPWalkLabel.BackgroundTransparency = 1
-TPWalkLabel.Text = "TP Walk"
-TPWalkLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TPWalkLabel.TextSize = 18
-TPWalkLabel.Font = Enum.Font.SourceSansBold
-TPWalkLabel.TextXAlignment = Enum.TextXAlignment.Left
-TPWalkLabel.Parent = MainFrame
+local MinimizeButtonStroke = Instance.new("UIStroke")
+MinimizeButtonStroke.Color = Color3.fromRGB(60, 60, 80)
+MinimizeButtonStroke.Thickness = 1.5
+MinimizeButtonStroke.Parent = MinimizeButton
 
-local TPWalkButton = Instance.new("TextButton")
-TPWalkButton.Name = "TPWalkButton"
-TPWalkButton.Size = UDim2.new(0, 120, 0, 35)
-TPWalkButton.Position = UDim2.new(0.6, 0, 0.4, 0)
-TPWalkButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
-TPWalkButton.BorderSizePixel = 0
-TPWalkButton.Text = "OFF"
-TPWalkButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-TPWalkButton.TextSize = 18
-TPWalkButton.Font = Enum.Font.SourceSansBold
-TPWalkButton.Parent = MainFrame
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Name = "ContentFrame"
+ContentFrame.Size = UDim2.new(1, -20, 1, -50)
+ContentFrame.Position = UDim2.new(0, 10, 0, 40)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = MainFrame
 
-local TPWalkUICorner = Instance.new("UICorner")
-TPWalkUICorner.CornerRadius = UDim.new(0, 6)
-TPWalkUICorner.Parent = TPWalkButton
+local function CreateModernToggle(name, yPos, icon)
+    local ToggleFrame = Instance.new("Frame")
+    ToggleFrame.Name = name .. "Frame"
+    ToggleFrame.Size = UDim2.new(1, 0, 0, 40)
+    ToggleFrame.Position = UDim2.new(0, 0, yPos, 0)
+    ToggleFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    ToggleFrame.BackgroundTransparency = 0.3
+    ToggleFrame.Parent = ContentFrame
+
+    local ToggleCorner = Instance.new("UICorner")
+    ToggleCorner.CornerRadius = UDim.new(0, 8)
+    ToggleCorner.Parent = ToggleFrame
+
+    local ToggleStroke = Instance.new("UIStroke")
+    ToggleStroke.Color = Color3.fromRGB(60, 60, 80)
+    ToggleStroke.Thickness = 1
+    ToggleStroke.Parent = ToggleFrame
+
+    local IconLabel = Instance.new("TextLabel")
+    IconLabel.Name = "Icon"
+    IconLabel.Size = UDim2.new(0, 30, 0, 30)
+    IconLabel.Position = UDim2.new(0, 8, 0.5, -15)
+    IconLabel.BackgroundTransparency = 1
+    IconLabel.Text = icon
+    IconLabel.TextColor3 = Color3.fromRGB(180, 180, 220)
+    IconLabel.TextSize = 18
+    IconLabel.Font = Enum.Font.Gotham
+    IconLabel.Parent = ToggleFrame
+
+    local Label = Instance.new("TextLabel")
+    Label.Name = "Label"
+    Label.Size = UDim2.new(0.5, -40, 1, 0)
+    Label.Position = UDim2.new(0, 45, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = name
+    Label.TextColor3 = Color3.fromRGB(220, 220, 255)
+    Label.TextSize = 14
+    Label.Font = Enum.Font.Gotham
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = ToggleFrame
+
+    local Button = Instance.new("TextButton")
+    Button.Name = name .. "Button"
+    Button.Size = UDim2.new(0, 60, 0, 25)
+    Button.Position = UDim2.new(1, -70, 0.5, -12.5)
+    Button.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+    Button.BorderSizePixel = 0
+    Button.Text = "OFF"
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.TextSize = 12
+    Button.Font = Enum.Font.GothamBold
+    Button.Parent = ToggleFrame
+
+    local ButtonCorner = Instance.new("UICorner")
+    ButtonCorner.CornerRadius = UDim.new(1, 0)
+    ButtonCorner.Parent = Button
+
+    local ButtonStroke = Instance.new("UIStroke")
+    ButtonStroke.Color = Color3.fromRGB(150, 40, 40)
+    ButtonStroke.Thickness = 1.5
+    ButtonStroke.Parent = Button
+
+    local ButtonGradient = Instance.new("UIGradient")
+    ButtonGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(220, 80, 80)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 50, 50))
+    })
+    ButtonGradient.Parent = Button
+
+    return Button
+end
+
+local FullbrightButton = CreateModernToggle("Fullbright", 0, "☀️")
+local TPWalkButton = CreateModernToggle("TP Walk", 0.15, "⚡")
+local NoClipButton = CreateModernToggle("NoClip", 0.3, "👻")
+local InfiniteJumpButton = CreateModernToggle("Inf Jump", 0.45, "🦘")
+
+local SpeedFrame = Instance.new("Frame")
+SpeedFrame.Name = "SpeedFrame"
+SpeedFrame.Size = UDim2.new(1, 0, 0, 50)
+SpeedFrame.Position = UDim2.new(0, 0, 0.75, 0)
+SpeedFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+SpeedFrame.BackgroundTransparency = 0.3
+SpeedFrame.Parent = ContentFrame
+
+local SpeedCorner = Instance.new("UICorner")
+SpeedCorner.CornerRadius = UDim.new(0, 8)
+SpeedCorner.Parent = SpeedFrame
+
+local SpeedStroke = Instance.new("UIStroke")
+SpeedStroke.Color = Color3.fromRGB(60, 60, 80)
+SpeedStroke.Thickness = 1
+SpeedStroke.Parent = SpeedFrame
+
+local SpeedIcon = Instance.new("TextLabel")
+SpeedIcon.Name = "SpeedIcon"
+SpeedIcon.Size = UDim2.new(0, 30, 0, 30)
+SpeedIcon.Position = UDim2.new(0, 8, 0.5, -15)
+SpeedIcon.BackgroundTransparency = 1
+SpeedIcon.Text = "🎯"
+SpeedIcon.TextColor3 = Color3.fromRGB(180, 180, 220)
+SpeedIcon.TextSize = 16
+SpeedIcon.Font = Enum.Font.Gotham
+SpeedIcon.Parent = SpeedFrame
 
 local SpeedLabel = Instance.new("TextLabel")
 SpeedLabel.Name = "SpeedLabel"
-SpeedLabel.Size = UDim2.new(1, 0, 0, 25)
-SpeedLabel.Position = UDim2.new(0, 0, 0.55, 0)
+SpeedLabel.Size = UDim2.new(0.4, -40, 1, 0)
+SpeedLabel.Position = UDim2.new(0, 45, 0, 0)
 SpeedLabel.BackgroundTransparency = 1
-SpeedLabel.Text = "TP Walk Speed: 5"
-SpeedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-SpeedLabel.TextSize = 16
-SpeedLabel.Font = Enum.Font.SourceSansBold
-SpeedLabel.Parent = MainFrame
+SpeedLabel.Text = "Speed: 5"
+SpeedLabel.TextColor3 = Color3.fromRGB(220, 220, 255)
+SpeedLabel.TextSize = 14
+SpeedLabel.Font = Enum.Font.Gotham
+SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+SpeedLabel.Parent = SpeedFrame
 
 local MinusButton = Instance.new("TextButton")
 MinusButton.Name = "MinusButton"
-MinusButton.Size = UDim2.new(0, 40, 0, 40)
-MinusButton.Position = UDim2.new(0.1, 0, 0.65, 0)
-MinusButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+MinusButton.Size = UDim2.new(0, 30, 0, 30)
+MinusButton.Position = UDim2.new(0.5, 0, 0.5, -15)
+MinusButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
 MinusButton.Text = "-"
-MinusButton.TextSize = 24
-MinusButton.Font = Enum.Font.SourceSansBold
 MinusButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-MinusButton.BorderSizePixel = 0
-MinusButton.Parent = MainFrame
+MinusButton.TextSize = 16
+MinusButton.Font = Enum.Font.GothamBold
+MinusButton.Parent = SpeedFrame
 
-local MinusUICorner = Instance.new("UICorner")
-MinusUICorner.CornerRadius = UDim.new(0, 8)
-MinusUICorner.Parent = MinusButton
+local MinusCorner = Instance.new("UICorner")
+MinusCorner.CornerRadius = UDim.new(1, 0)
+MinusCorner.Parent = MinusButton
 
-local SpeedValue = Instance.new("TextLabel")
+local MinusStroke = Instance.new("UIStroke")
+MinusStroke.Color = Color3.fromRGB(150, 40, 40)
+MinusStroke.Thickness = 1.5
+MinusStroke.Parent = MinusButton
+
+local SpeedValue = Instance.new("TextButton")
 SpeedValue.Name = "SpeedValue"
-SpeedValue.Size = UDim2.new(0, 60, 0, 40)
-SpeedValue.Position = UDim2.new(0.4, 0, 0.65, 0)
-SpeedValue.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-SpeedValue.BorderSizePixel = 0
+SpeedValue.Size = UDim2.new(0, 50, 0, 30)
+SpeedValue.Position = UDim2.new(0.65, 0, 0.5, -15)
+SpeedValue.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
 SpeedValue.Text = "5"
-SpeedValue.TextColor3 = Color3.fromRGB(255, 255, 255)
-SpeedValue.TextSize = 20
-SpeedValue.Font = Enum.Font.SourceSansBold
-SpeedValue.Parent = MainFrame
+SpeedValue.TextColor3 = Color3.fromRGB(220, 220, 255)
+SpeedValue.TextSize = 14
+SpeedValue.Font = Enum.Font.GothamBold
+SpeedValue.Parent = SpeedFrame
 
-local SpeedValueUICorner = Instance.new("UICorner")
-SpeedValueUICorner.CornerRadius = UDim.new(0, 8)
-SpeedValueUICorner.Parent = SpeedValue
+local SpeedValueCorner = Instance.new("UICorner")
+SpeedValueCorner.CornerRadius = UDim.new(0, 6)
+SpeedValueCorner.Parent = SpeedValue
+
+local SpeedValueStroke = Instance.new("UIStroke")
+SpeedValueStroke.Color = Color3.fromRGB(80, 80, 100)
+SpeedValueStroke.Thickness = 1.5
+SpeedValueStroke.Parent = SpeedValue
 
 local PlusButton = Instance.new("TextButton")
 PlusButton.Name = "PlusButton"
-PlusButton.Size = UDim2.new(0, 40, 0, 40)
-PlusButton.Position = UDim2.new(0.7, 0, 0.65, 0)
-PlusButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+PlusButton.Size = UDim2.new(0, 30, 0, 30)
+PlusButton.Position = UDim2.new(0.85, 0, 0.5, -15)
+PlusButton.BackgroundColor3 = Color3.fromRGB(60, 180, 80)
 PlusButton.Text = "+"
-PlusButton.TextSize = 24
-PlusButton.Font = Enum.Font.SourceSansBold
 PlusButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-PlusButton.BorderSizePixel = 0
-PlusButton.Parent = MainFrame
+PlusButton.TextSize = 16
+PlusButton.Font = Enum.Font.GothamBold
+PlusButton.Parent = SpeedFrame
 
-local PlusUICorner = Instance.new("UICorner")
-PlusUICorner.CornerRadius = UDim.new(0, 8)
-PlusUICorner.Parent = PlusButton
+local PlusCorner = Instance.new("UICorner")
+PlusCorner.CornerRadius = UDim.new(1, 0)
+PlusCorner.Parent = PlusButton
 
-local HintLabel = Instance.new("TextLabel")
-HintLabel.Name = "HintLabel"
-HintLabel.Size = UDim2.new(0.9, 0, 0, 40)
-HintLabel.Position = UDim2.new(0.05, 0, 0.82, 0)
-HintLabel.BackgroundTransparency = 1
-HintLabel.Text = "ปรับระดับความวิ่งไว"
-HintLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-HintLabel.TextSize = 22
-HintLabel.Font = Enum.Font.SourceSans
-HintLabel.TextYAlignment = Enum.TextYAlignment.Top
-HintLabel.Parent = MainFrame
+local PlusStroke = Instance.new("UIStroke")
+PlusStroke.Color = Color3.fromRGB(40, 140, 60)
+PlusStroke.Thickness = 1.5
+PlusStroke.Parent = PlusButton
 
-local function SetFullbright(enable)
-    if enable then
-        if not Settings.FullbrightEnabled then
-            Settings.OriginalAmbient = Lighting.Ambient
-            Settings.OriginalBrightness = Lighting.Brightness
-            Settings.OriginalClockTime = Lighting.ClockTime
-            Settings.OriginalFogEnd = Lighting.FogEnd
-            Settings.OriginalFogStart = Lighting.FogStart
-            Settings.OriginalOutdoorAmbient = Lighting.OutdoorAmbient
+local SpeedInput = Instance.new("TextBox")
+SpeedInput.Name = "SpeedInput"
+SpeedInput.Size = UDim2.new(0, 50, 0, 30)
+SpeedInput.Position = UDim2.new(0.65, 0, 0.5, -15)
+SpeedInput.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+SpeedInput.Text = ""
+SpeedInput.TextColor3 = Color3.fromRGB(220, 220, 255)
+SpeedInput.TextSize = 14
+SpeedInput.Font = Enum.Font.GothamBold
+SpeedInput.PlaceholderText = "Speed"
+SpeedInput.Visible = false
+SpeedInput.Parent = SpeedFrame
+
+local SpeedInputCorner = Instance.new("UICorner")
+SpeedInputCorner.CornerRadius = UDim.new(0, 6)
+SpeedInputCorner.Parent = SpeedInput
+
+local SpeedInputStroke = Instance.new("UIStroke")
+SpeedInputStroke.Color = Color3.fromRGB(100, 100, 140)
+SpeedInputStroke.Thickness = 2
+SpeedInputStroke.Parent = SpeedInput
+
+local UIElements = {
+    FullbrightButton.Parent, TPWalkButton.Parent, NoClipButton.Parent, InfiniteJumpButton.Parent, SpeedFrame
+}
+
+local function AnimateButton(button)
+    local originalSize = button.Size
+    local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    
+    local scaleDown = TweenService:Create(button, tweenInfo, {Size = originalSize - UDim2.new(0, 4, 0, 4)})
+    local scaleUp = TweenService:Create(button, tweenInfo, {Size = originalSize})
+    
+    scaleDown:Play()
+    scaleDown.Completed:Connect(function()
+        scaleUp:Play()
+    end)
+end
+
+local function UpdateSpeedDisplay()
+    SpeedValue.Text = tostring(Settings.TPWalkSpeed)
+    SpeedLabel.Text = "Speed: " .. tostring(Settings.TPWalkSpeed)
+end
+
+local function HideSpeedInputAndSave()
+    if SpeedInput.Visible then
+        local newSpeed = tonumber(SpeedInput.Text)
+        if newSpeed then
+            if newSpeed < 0.5 then newSpeed = 0.5
+            elseif newSpeed > 500 then newSpeed = 500 end
+            Settings.TPWalkSpeed = newSpeed
+            UpdateSpeedDisplay()
         end
-        
-        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
-        Lighting.Brightness = 2
-        Lighting.ClockTime = 14
-        Lighting.FogEnd = 100000
-        Lighting.FogStart = 0
-        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
-        
-        for _, effect in pairs(Lighting:GetChildren()) do
-            if effect:IsA("BlurEffect") or effect:IsA("ColorCorrectionEffect") or effect:IsA("BloomEffect") then
-                effect.Enabled = false
+        SpeedInput.Visible = false
+        SpeedValue.Visible = true
+    end
+end
+
+local NoClipConnection = nil
+local function SetupNoClip()
+    if Settings.NoClipEnabled then
+        if NoClipConnection then NoClipConnection:Disconnect() end
+        NoClipConnection = RunService.Stepped:Connect(function()
+            if Character then
+                for _, part in pairs(Character:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if NoClipConnection then
+            NoClipConnection:Disconnect()
+            NoClipConnection = nil
+        end
+        if Character then
+            for _, part in pairs(Character:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = true end
             end
         end
+    end
+end
+
+local InfiniteJumpConnection = nil
+local function SetupInfiniteJump()
+    if Settings.InfiniteJumpEnabled then
+        if InfiniteJumpConnection then InfiniteJumpConnection:Disconnect() end
+        InfiniteJumpConnection = UserInputService.JumpRequest:Connect(function()
+            if Character and Character:FindFirstChild("Humanoid") then
+                Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end)
     else
+        if InfiniteJumpConnection then
+            InfiniteJumpConnection:Disconnect()
+            InfiniteJumpConnection = nil
+        end
+    end
+end
+
+local function SaveOriginalLighting()
+    if not Settings.OriginalValuesSaved then
+        Settings.OriginalAmbient = Lighting.Ambient
+        Settings.OriginalBrightness = Lighting.Brightness
+        Settings.OriginalClockTime = Lighting.ClockTime
+        Settings.OriginalFogEnd = Lighting.FogEnd
+        Settings.OriginalFogStart = Lighting.FogStart
+        Settings.OriginalOutdoorAmbient = Lighting.OutdoorAmbient
+        Settings.OriginalEffects = {}
+        for _, effect in pairs(Lighting:GetChildren()) do
+            if effect:IsA("BlurEffect") or effect:IsA("ColorCorrectionEffect") or effect:IsA("BloomEffect") then
+                Settings.OriginalEffects[effect] = effect.Enabled
+            end
+        end
+        Settings.OriginalValuesSaved = true
+    end
+end
+
+local function RestoreOriginalLighting()
+    if Settings.OriginalValuesSaved then
         Lighting.Ambient = Settings.OriginalAmbient
         Lighting.Brightness = Settings.OriginalBrightness
         Lighting.ClockTime = Settings.OriginalClockTime
         Lighting.FogEnd = Settings.OriginalFogEnd
         Lighting.FogStart = Settings.OriginalFogStart
         Lighting.OutdoorAmbient = Settings.OriginalOutdoorAmbient
-        
+        for effect, wasEnabled in pairs(Settings.OriginalEffects) do
+            if effect and effect.Parent then effect.Enabled = wasEnabled end
+        end
+    end
+end
+
+local function SetFullbright(enable)
+    if enable then
+        SaveOriginalLighting()
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 14
+        Lighting.FogEnd = 100000
+        Lighting.FogStart = 0
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
         for _, effect in pairs(Lighting:GetChildren()) do
             if effect:IsA("BlurEffect") or effect:IsA("ColorCorrectionEffect") or effect:IsA("BloomEffect") then
-                effect.Enabled = true
+                effect.Enabled = false
             end
         end
+    else
+        RestoreOriginalLighting()
     end
 end
 
 local TPWalkConnection = nil
 local function SetupTPWalk()
     if Settings.TPWalkEnabled then
-        if TPWalkConnection then
-            TPWalkConnection:Disconnect()
-        end
-        
+        if TPWalkConnection then TPWalkConnection:Disconnect() end
         TPWalkConnection = RunService.Heartbeat:Connect(function()
             local character = LocalPlayer.Character
             if character and character:FindFirstChild("Humanoid") and character:FindFirstChild("HumanoidRootPart") then
                 local moveDirection = character.Humanoid.MoveDirection
                 if moveDirection.Magnitude > 0 then
-                    character.HumanoidRootPart.CFrame = character.HumanoidRootPart.CFrame + 
-                        (moveDirection * Settings.TPWalkSpeed / 10)
+                    character.HumanoidRootPart.CFrame = character.HumanoidRootPart.CFrame + (moveDirection * Settings.TPWalkSpeed / 10)
                 end
             end
         end)
@@ -252,45 +498,357 @@ local function SetupTPWalk()
     end
 end
 
-FullbrightButton.MouseButton1Click:Connect(function()
-    Settings.FullbrightEnabled = not Settings.FullbrightEnabled
-    if Settings.FullbrightEnabled then
-        FullbrightButton.Text = "ON"
-        FullbrightButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-        SetFullbright(true)
+CloseButton.MouseButton1Click:Connect(function()
+    AnimateButton(CloseButton)
+    wait(0.1)
+    ScreenGui:Destroy()
+end)
+
+local Minimized = false
+MinimizeButton.MouseButton1Click:Connect(function()
+    AnimateButton(MinimizeButton)
+    Minimized = not Minimized
+    if Minimized then
+        MainFrame.Size = UDim2.new(0, 320, 0, 35)
+        for _, element in pairs(UIElements) do
+            if element then element.Visible = false end
+        end
+        SpeedInput.Visible = false
     else
-        FullbrightButton.Text = "OFF"
-        FullbrightButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
-        SetFullbright(false)
+        MainFrame.Size = UDim2.new(0, 320, 0, 280)
+        for _, element in pairs(UIElements) do
+            if element then element.Visible = true end
+        end
+        SpeedValue.Visible = true
+        SpeedInput.Visible = false
     end
 end)
+
+SpeedValue.MouseButton1Click:Connect(function()
+    AnimateButton(SpeedValue)
+    SpeedValue.Visible = false
+    SpeedInput.Visible = true
+    SpeedInput.Text = tostring(Settings.TPWalkSpeed)
+    SpeedInput:CaptureFocus()
+end)
+
+SpeedInput.Focused:Connect(function()
+    local inputConnection
+    inputConnection = UserInputService.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local mousePos = UserInputService:GetMouseLocation()
+            local inputAbsPos = SpeedInput.AbsolutePosition
+            local inputAbsSize = SpeedInput.AbsoluteSize
+            if mousePos.X < inputAbsPos.X or mousePos.X > inputAbsPos.X + inputAbsSize.X or
+               mousePos.Y < inputAbsPos.Y or mousePos.Y > inputAbsPos.Y + inputAbsSize.Y then
+                HideSpeedInputAndSave()
+                inputConnection:Disconnect()
+            end
+        end
+    end)
+end)
+
+SpeedInput.FocusLost:Connect(function(enterPressed)
+    if enterPressed then HideSpeedInputAndSave() end
+end)
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Escape and SpeedInput.Visible then
+        SpeedInput.Visible = false
+        SpeedValue.Visible = true
+    end
+end)
+
+local function ToggleButton(button, setting)
+    AnimateButton(button)
+    if setting then
+        button.Text = "ON"
+        button.BackgroundColor3 = Color3.fromRGB(60, 180, 80)
+        if button:FindFirstChild("UIStroke") then
+            button.UIStroke.Color = Color3.fromRGB(40, 140, 60)
+        end
+        local gradient = button:FindFirstChildOfClass("UIGradient")
+        if gradient then
+            gradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 200, 100)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 160, 80))
+            })
+        end
+    else
+        button.Text = "OFF"
+        button.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+        if button:FindFirstChild("UIStroke") then
+            button.UIStroke.Color = Color3.fromRGB(150, 40, 40)
+        end
+        local gradient = button:FindFirstChildOfClass("UIGradient")
+        if gradient then
+            gradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(220, 80, 80)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 50, 50))
+            })
+        end
+    end
+end
+
+FullbrightButton.MouseButton1Click:Connect(function()
+    Settings.FullbrightEnabled = not Settings.FullbrightEnabled
+    ToggleButton(FullbrightButton, Settings.FullbrightEnabled)
+    SetFullbright(Settings.FullbrightEnabled)
+end)
+
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local function ShowWelcomeMessage()
+    local WelcomeGui = Instance.new("ScreenGui")
+    WelcomeGui.Name = "WelcomeGui"
+    WelcomeGui.Parent = game:GetService("CoreGui")
+    WelcomeGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Size = UDim2.new(0, 280, 0, 100)
+    MainFrame.Position = UDim2.new(1, 20, 1, 20)
+    MainFrame.AnchorPoint = Vector2.new(1, 1)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    MainFrame.BackgroundTransparency = 0.1
+    MainFrame.BorderSizePixel = 0
+    MainFrame.ClipsDescendants = true
+    MainFrame.Parent = WelcomeGui
+
+    local MainGradient = Instance.new("UIGradient")
+    MainGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 25, 35)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 25))
+    })
+    MainGradient.Rotation = 45
+    MainGradient.Parent = MainFrame
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 14)
+    UICorner.Parent = MainFrame
+
+    local ParticlesFolder = Instance.new("Folder")
+    ParticlesFolder.Name = "Particles"
+    ParticlesFolder.Parent = MainFrame
+
+    for i = 1, 8 do
+        local Particle = Instance.new("Frame")
+        Particle.Name = "Particle" .. i
+        Particle.Size = UDim2.new(0, 4, 0, 4)
+        Particle.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+        Particle.BorderSizePixel = 0
+        Particle.Parent = ParticlesFolder
+        
+        local ParticleCorner = Instance.new("UICorner")
+        ParticleCorner.CornerRadius = UDim.new(1, 0)
+        ParticleCorner.Parent = Particle
+    end
+
+    local IconContainer = Instance.new("Frame")
+    IconContainer.Name = "IconContainer"
+    IconContainer.Size = UDim2.new(0, 50, 0, 50)
+    IconContainer.Position = UDim2.new(0, 15, 0.5, -25)
+    IconContainer.BackgroundTransparency = 1
+    IconContainer.Parent = MainFrame
+
+    local Icon = Instance.new("TextLabel")
+    Icon.Name = "Icon"
+    Icon.Size = UDim2.new(1, 0, 1, 0)
+    Icon.BackgroundTransparency = 1
+    Icon.Text = "⚡"
+    Icon.TextColor3 = Color3.fromRGB(255, 255, 150)
+    Icon.TextSize = 28
+    Icon.Font = Enum.Font.GothamBold
+    Icon.Parent = IconContainer
+
+    local TextContainer = Instance.new("Frame")
+    TextContainer.Name = "TextContainer"
+    TextContainer.Size = UDim2.new(0, 190, 0, 60)
+    TextContainer.Position = UDim2.new(0, 75, 0.5, -30)
+    TextContainer.BackgroundTransparency = 1
+    TextContainer.Parent = MainFrame
+
+    local Title = Instance.new("TextLabel")
+    Title.Name = "Title"
+    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.Position = UDim2.new(0, 0, 0, 0)
+    Title.BackgroundTransparency = 1
+    Title.Text = "DIABLO SCRIPT"
+    Title.TextColor3 = Color3.fromRGB(255, 215, 0)
+    Title.TextSize = 18
+    Title.Font = Enum.Font.GothamBold
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.TextTransparency = 1
+    Title.Parent = TextContainer
+
+    local Status = Instance.new("TextLabel")
+    Status.Name = "Status"
+    Status.Size = UDim2.new(1, 0, 0, 20)
+    Status.Position = UDim2.new(0, 0, 0, 35)
+    Status.BackgroundTransparency = 1
+    Status.Text = "มึงจะโปรหาพ่อมึงหรอไอ่สัส"
+    Status.TextColor3 = Color3.fromRGB(100, 255, 100)
+    Status.TextSize = 23
+    Status.Font = Enum.Font.GothamBold
+    Status.TextXAlignment = Enum.TextXAlignment.Left
+    Status.TextTransparency = 1
+    Status.Parent = TextContainer
+
+    local ProgressBar = Instance.new("Frame")
+    ProgressBar.Name = "ProgressBar"
+    ProgressBar.Size = UDim2.new(0, 0, 0, 3)
+    ProgressBar.Position = UDim2.new(0, 15, 1, -10)
+    ProgressBar.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+    ProgressBar.BorderSizePixel = 0
+    ProgressBar.Parent = MainFrame
+
+    local ProgressCorner = Instance.new("UICorner")
+    ProgressCorner.CornerRadius = UDim.new(1, 0)
+    ProgressCorner.Parent = ProgressBar
+
+    local function AnimateParticles()
+        local particles = ParticlesFolder:GetChildren()
+        for i, particle in ipairs(particles) do
+            local angle = (i / #particles) * 2 * math.pi
+            local radius = 60
+            local speed = 2 + math.random() * 2
+            
+            spawn(function()
+                while WelcomeGui.Parent do
+                    local time = tick() * speed
+                    local x = math.cos(time + angle) * radius
+                    local y = math.sin(time + angle) * radius
+                    particle.Position = UDim2.new(0.5, x, 0.5, y)
+                    
+                    local scale = 0.5 + math.abs(math.sin(time * 2)) * 0.5
+                    particle.Size = UDim2.new(0, 4 * scale, 0, 4 * scale)
+                    
+                    particle.BackgroundTransparency = 0.3 + math.abs(math.sin(time)) * 0.4
+                    wait(0.03)
+                end
+            end)
+        end
+    end
+
+    local function AnimateIcon()
+        while WelcomeGui.Parent do
+            local pulse = math.sin(tick() * 3) * 0.2 + 0.8
+            Icon.TextSize = 28 * pulse
+            wait(0.05)
+        end
+    end
+
+    local slideIn = TweenService:Create(
+        MainFrame,
+        TweenInfo.new(0.8, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        {Position = UDim2.new(1, -20, 1, -20)}
+    )
+
+    local titleFadeIn = TweenService:Create(
+        Title,
+        TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {TextTransparency = 0}
+    )
+
+    local statusFadeIn = TweenService:Create(
+        Status,
+        TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {TextTransparency = 0}
+    )
+
+    local progressFill = TweenService:Create(
+        ProgressBar,
+        TweenInfo.new(2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+        {Size = UDim2.new(1, -30, 0, 3)}
+    )
+
+    local statusColorChange = TweenService:Create(
+        Status,
+        TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {TextColor3 = Color3.fromRGB(255, 255, 255)}
+    )
+
+    local statusColorRevert = TweenService:Create(
+        Status,
+        TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {TextColor3 = Color3.fromRGB(100, 255, 100)}
+    )
+
+    local slideOut = TweenService:Create(
+        MainFrame,
+        TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
+        {Position = UDim2.new(1, 20, 1, 20)}
+    )
+
+    slideIn:Play()
+    
+    wait(0.3)
+    titleFadeIn:Play()
+    
+    wait(0.2)
+    statusFadeIn:Play()
+    
+    wait(0.2)
+    progressFill:Play()
+    
+    spawn(AnimateParticles)
+    spawn(AnimateIcon)
+
+    wait(1.5)
+    statusColorChange:Play()
+    wait(0.3)
+    statusColorRevert:Play()
+
+    wait(2)
+    
+    slideOut:Play()
+    slideOut.Completed:Wait()
+    
+    WelcomeGui:Destroy()
+end
+
+ShowWelcomeMessage()
 
 TPWalkButton.MouseButton1Click:Connect(function()
     Settings.TPWalkEnabled = not Settings.TPWalkEnabled
-    if Settings.TPWalkEnabled then
-        TPWalkButton.Text = "ON"
-        TPWalkButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-        SetupTPWalk()
-    else
-        TPWalkButton.Text = "OFF"
-        TPWalkButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
-        SetupTPWalk()
-    end
+    ToggleButton(TPWalkButton, Settings.TPWalkEnabled)
+    SetupTPWalk()
+end)
+
+NoClipButton.MouseButton1Click:Connect(function()
+    Settings.NoClipEnabled = not Settings.NoClipEnabled
+    ToggleButton(NoClipButton, Settings.NoClipEnabled)
+    SetupNoClip()
+end)
+
+InfiniteJumpButton.MouseButton1Click:Connect(function()
+    Settings.InfiniteJumpEnabled = not Settings.InfiniteJumpEnabled
+    ToggleButton(InfiniteJumpButton, Settings.InfiniteJumpEnabled)
+    SetupInfiniteJump()
 end)
 
 MinusButton.MouseButton1Click:Connect(function()
-    if Settings.TPWalkSpeed > 1 then
-        Settings.TPWalkSpeed = Settings.TPWalkSpeed - 1
-        SpeedValue.Text = tostring(Settings.TPWalkSpeed)
-        SpeedLabel.Text = "TP Walk Speed: " .. tostring(Settings.TPWalkSpeed)
+    AnimateButton(MinusButton)
+    if Settings.TPWalkSpeed > 0.5 then
+        if Settings.TPWalkSpeed == 1 then
+            Settings.TPWalkSpeed = 0.5
+        else
+            Settings.TPWalkSpeed = Settings.TPWalkSpeed - 1
+        end
+        UpdateSpeedDisplay()
     end
 end)
 
 PlusButton.MouseButton1Click:Connect(function()
-    if Settings.TPWalkSpeed < 50 then
-        Settings.TPWalkSpeed = Settings.TPWalkSpeed + 1
-        SpeedValue.Text = tostring(Settings.TPWalkSpeed)
-        SpeedLabel.Text = "TP Walk Speed: " .. tostring(Settings.TPWalkSpeed)
+    AnimateButton(PlusButton)
+    if Settings.TPWalkSpeed < 500 then
+        if Settings.TPWalkSpeed == 0.5 then
+            Settings.TPWalkSpeed = 1
+        else
+            Settings.TPWalkSpeed = Settings.TPWalkSpeed + 1
+        end
+        UpdateSpeedDisplay()
     end
 end)
 
@@ -298,25 +856,8 @@ LocalPlayer.CharacterAdded:Connect(function(newCharacter)
     Character = newCharacter
     Humanoid = Character:WaitForChild("Humanoid")
     HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
-    
-    if Settings.TPWalkEnabled then
-        SetupTPWalk()
-    end
+    if Settings.TPWalkEnabled then SetupTPWalk() end
+    if Settings.NoClipEnabled then SetupNoClip() end
 end)
 
-RunService.RenderStepped:Connect(function()
-    if Settings.FullbrightEnabled then
-        Lighting.Brightness = 2
-        Lighting.ClockTime = 14
-        Lighting.FogEnd = 100000
-        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
-    end
-end)
-
-game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Fullbright & TP Walk | Diablo",
-    Text = "Script loaded successfully!",
-    Duration = 5
-})
-
-print("Fullbright & TP Walk script by Diablo loaded successfully!")
+print("มึงจะรัน Script กูหาพ่อมึงหรอไอ่สัส กูให้มึงใช้ตอนไหน!")
