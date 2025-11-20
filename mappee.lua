@@ -15,6 +15,7 @@ local Settings = {
     TPWalkSpeed = 5,
     NoClipEnabled = false,
     InfiniteJumpEnabled = false,
+    ESPEnabled = false,
     OriginalValuesSaved = false,
     OriginalAmbient = nil,
     OriginalBrightness = nil,
@@ -25,13 +26,147 @@ local Settings = {
     OriginalEffects = {}
 }
 
+local espEnabled = false
+local espConnections = {}
+
+local function createESP(player)
+    if player == LocalPlayer then return end
+    
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Parent = character
+    highlight.FillColor = Color3.fromRGB(255, 100, 100)
+    highlight.FillTransparency = 0.7
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.OutlineTransparency = 0
+
+    local billboardGui = Instance.new("BillboardGui")
+    billboardGui.Name = "ESPInfo"
+    billboardGui.Parent = humanoidRootPart
+    billboardGui.Size = UDim2.new(0, 200, 0, 40)
+    billboardGui.StudsOffset = Vector3.new(0, 3, 0)
+    billboardGui.AlwaysOnTop = true
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Parent = billboardGui
+    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = player.Name
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextScaled = true
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.Parent = billboardGui
+    distanceLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    distanceLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.Text = "0 studs"
+    distanceLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    distanceLabel.TextScaled = true
+    distanceLabel.Font = Enum.Font.Gotham
+    distanceLabel.TextStrokeTransparency = 0
+    distanceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+
+    local updateConnection
+    updateConnection = RunService.Heartbeat:Connect(function()
+        if not espEnabled or not player.Character or not LocalPlayer.Character then
+            if updateConnection then
+                updateConnection:Disconnect()
+            end
+            if highlight then highlight:Destroy() end
+            if billboardGui then billboardGui:Destroy() end
+            return
+        end
+        
+        local localHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local playerHRP = player.Character:FindFirstChild("HumanoidRootPart")
+        
+        if localHRP and playerHRP then
+            local distance = math.floor((localHRP.Position - playerHRP.Position).Magnitude)
+            distanceLabel.Text = distance .. " studs"
+            
+            local ratio = math.clamp(distance / 100, 0, 1)
+            local color = Color3.new(1 - ratio, ratio, 0)
+            highlight.FillColor = color
+        end
+    end)
+    
+    espConnections[player] = {updateConnection, highlight, billboardGui}
+end
+
+local function enableESP()
+    if espEnabled then return end
+    
+    espEnabled = true
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        createESP(player)
+    end
+    
+    espConnections.playerAdded = Players.PlayerAdded:Connect(createESP)
+    
+    espConnections.playerRemoving = Players.PlayerRemoving:Connect(function(player)
+        if espConnections[player] then
+            local connection, highlight, billboardGui = unpack(espConnections[player])
+            if connection then connection:Disconnect() end
+            if highlight then highlight:Destroy() end
+            if billboardGui then billboardGui:Destroy() end
+            espConnections[player] = nil
+        end
+    end)
+    
+    espConnections.characterAdded = {}
+    for _, player in pairs(Players:GetPlayers()) do
+        espConnections.characterAdded[player] = player.CharacterAdded:Connect(function()
+            wait(1)
+            createESP(player)
+        end)
+    end
+    
+    print("ESP enabled!")
+end
+
+local function disableESP()
+    if not espEnabled then return end
+    
+    espEnabled = false
+    
+    for player, data in pairs(espConnections) do
+        if type(data) == "table" and #data == 3 then
+            local connection, highlight, billboardGui = unpack(data)
+            if connection then connection:Disconnect() end
+            if highlight then highlight:Destroy() end
+            if billboardGui then billboardGui:Destroy() end
+        elseif type(data) == "userdata" and data.Disconnect then
+            data:Disconnect()
+        end
+    end
+    
+    if espConnections.characterAdded then
+        for _, connection in pairs(espConnections.characterAdded) do
+            if connection then connection:Disconnect() end
+        end
+    end
+    
+    espConnections = {}
+    print("ESP disabled!")
+end
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AdvancedScriptGui"
 ScreenGui.Parent = game:GetService("CoreGui")
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 320, 0, 280)
+MainFrame.Size = UDim2.new(0, 350, 0, 400)
 MainFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BackgroundTransparency = 0.1
@@ -71,7 +206,7 @@ DropShadow.Parent = MainFrame
 
 local TitleBar = Instance.new("Frame")
 TitleBar.Name = "TitleBar"
-TitleBar.Size = UDim2.new(1, 0, 0, 35)
+TitleBar.Size = UDim2.new(1, 0, 0, 40)
 TitleBar.Position = UDim2.new(0, 0, 0, 0)
 TitleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 TitleBar.BackgroundTransparency = 0.2
@@ -96,7 +231,7 @@ Title.Position = UDim2.new(0.05, 0, 0, 0)
 Title.BackgroundTransparency = 1
 Title.Text = "DIABLO SCRIPT"
 Title.TextColor3 = Color3.fromRGB(220, 220, 255)
-Title.TextSize = 16
+Title.TextSize = 18
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TitleBar
@@ -104,7 +239,7 @@ Title.Parent = TitleBar
 local CloseButton = Instance.new("TextButton")
 CloseButton.Name = "CloseButton"
 CloseButton.Size = UDim2.new(0, 25, 0, 25)
-CloseButton.Position = UDim2.new(0.9, 0, 0.14, 0)
+CloseButton.Position = UDim2.new(0.9, 0, 0.18, 0)
 CloseButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
 CloseButton.Text = "×"
 CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -124,7 +259,7 @@ CloseButtonStroke.Parent = CloseButton
 local MinimizeButton = Instance.new("TextButton")
 MinimizeButton.Name = "MinimizeButton"
 MinimizeButton.Size = UDim2.new(0, 25, 0, 25)
-MinimizeButton.Position = UDim2.new(0.8, 0, 0.14, 0)
+MinimizeButton.Position = UDim2.new(0.8, 0, 0.18, 0)
 MinimizeButton.BackgroundColor3 = Color3.fromRGB(80, 80, 100)
 MinimizeButton.Text = "−"
 MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -144,21 +279,26 @@ MinimizeButtonStroke.Parent = MinimizeButton
 local ContentFrame = Instance.new("Frame")
 ContentFrame.Name = "ContentFrame"
 ContentFrame.Size = UDim2.new(1, -20, 1, -50)
-ContentFrame.Position = UDim2.new(0, 10, 0, 40)
+ContentFrame.Position = UDim2.new(0, 10, 0, 45)
 ContentFrame.BackgroundTransparency = 1
 ContentFrame.Parent = MainFrame
 
-local function CreateModernToggle(name, yPos, icon)
+local ContentLayout = Instance.new("UIListLayout")
+ContentLayout.Parent = ContentFrame
+ContentLayout.Padding = UDim.new(0, 12)
+ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local function CreateModernToggle(name, icon)
     local ToggleFrame = Instance.new("Frame")
     ToggleFrame.Name = name .. "Frame"
-    ToggleFrame.Size = UDim2.new(1, 0, 0, 40)
-    ToggleFrame.Position = UDim2.new(0, 0, yPos, 0)
+    ToggleFrame.Size = UDim2.new(1, 0, 0, 45)
     ToggleFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
     ToggleFrame.BackgroundTransparency = 0.3
+    ToggleFrame.LayoutOrder = 1
     ToggleFrame.Parent = ContentFrame
 
     local ToggleCorner = Instance.new("UICorner")
-    ToggleCorner.CornerRadius = UDim.new(0, 8)
+    ToggleCorner.CornerRadius = UDim.new(0, 10)
     ToggleCorner.Parent = ToggleFrame
 
     local ToggleStroke = Instance.new("UIStroke")
@@ -168,36 +308,36 @@ local function CreateModernToggle(name, yPos, icon)
 
     local IconLabel = Instance.new("TextLabel")
     IconLabel.Name = "Icon"
-    IconLabel.Size = UDim2.new(0, 30, 0, 30)
-    IconLabel.Position = UDim2.new(0, 8, 0.5, -15)
+    IconLabel.Size = UDim2.new(0, 35, 0, 35)
+    IconLabel.Position = UDim2.new(0, 10, 0.5, -17.5)
     IconLabel.BackgroundTransparency = 1
     IconLabel.Text = icon
     IconLabel.TextColor3 = Color3.fromRGB(180, 180, 220)
-    IconLabel.TextSize = 18
+    IconLabel.TextSize = 20
     IconLabel.Font = Enum.Font.Gotham
     IconLabel.Parent = ToggleFrame
 
     local Label = Instance.new("TextLabel")
     Label.Name = "Label"
-    Label.Size = UDim2.new(0.5, -40, 1, 0)
-    Label.Position = UDim2.new(0, 45, 0, 0)
+    Label.Size = UDim2.new(0.5, -50, 1, 0)
+    Label.Position = UDim2.new(0, 55, 0, 0)
     Label.BackgroundTransparency = 1
     Label.Text = name
     Label.TextColor3 = Color3.fromRGB(220, 220, 255)
-    Label.TextSize = 14
+    Label.TextSize = 15
     Label.Font = Enum.Font.Gotham
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = ToggleFrame
 
     local Button = Instance.new("TextButton")
     Button.Name = name .. "Button"
-    Button.Size = UDim2.new(0, 60, 0, 25)
-    Button.Position = UDim2.new(1, -70, 0.5, -12.5)
+    Button.Size = UDim2.new(0, 70, 0, 30)
+    Button.Position = UDim2.new(1, -80, 0.5, -15)
     Button.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
     Button.BorderSizePixel = 0
     Button.Text = "OFF"
     Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Button.TextSize = 12
+    Button.TextSize = 13
     Button.Font = Enum.Font.GothamBold
     Button.Parent = ToggleFrame
 
@@ -220,21 +360,22 @@ local function CreateModernToggle(name, yPos, icon)
     return Button
 end
 
-local FullbrightButton = CreateModernToggle("Fullbright", 0, "☀️")
-local TPWalkButton = CreateModernToggle("TP Walk", 0.15, "⚡")
-local NoClipButton = CreateModernToggle("NoClip", 0.3, "👻")
-local InfiniteJumpButton = CreateModernToggle("Inf Jump", 0.45, "🦘")
+local FullbrightButton = CreateModernToggle("Fullbright", "☀️")
+local TPWalkButton = CreateModernToggle("TP Walk", "⚡")
+local NoClipButton = CreateModernToggle("NoClip", "👻")
+local InfiniteJumpButton = CreateModernToggle("Inf Jump", "🦘")
+local ESPButton = CreateModernToggle("ESP", "👁️")
 
 local SpeedFrame = Instance.new("Frame")
 SpeedFrame.Name = "SpeedFrame"
-SpeedFrame.Size = UDim2.new(1, 0, 0, 50)
-SpeedFrame.Position = UDim2.new(0, 0, 0.75, 0)
+SpeedFrame.Size = UDim2.new(1, 0, 0, 60)
 SpeedFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 SpeedFrame.BackgroundTransparency = 0.3
+SpeedFrame.LayoutOrder = 6
 SpeedFrame.Parent = ContentFrame
 
 local SpeedCorner = Instance.new("UICorner")
-SpeedCorner.CornerRadius = UDim.new(0, 8)
+SpeedCorner.CornerRadius = UDim.new(0, 10)
 SpeedCorner.Parent = SpeedFrame
 
 local SpeedStroke = Instance.new("UIStroke")
@@ -244,19 +385,19 @@ SpeedStroke.Parent = SpeedFrame
 
 local SpeedIcon = Instance.new("TextLabel")
 SpeedIcon.Name = "SpeedIcon"
-SpeedIcon.Size = UDim2.new(0, 30, 0, 30)
-SpeedIcon.Position = UDim2.new(0, 8, 0.5, -15)
+SpeedIcon.Size = UDim2.new(0, 35, 0, 35)
+SpeedIcon.Position = UDim2.new(0, 10, 0.5, -17.5)
 SpeedIcon.BackgroundTransparency = 1
 SpeedIcon.Text = "🎯"
 SpeedIcon.TextColor3 = Color3.fromRGB(180, 180, 220)
-SpeedIcon.TextSize = 16
+SpeedIcon.TextSize = 18
 SpeedIcon.Font = Enum.Font.Gotham
 SpeedIcon.Parent = SpeedFrame
 
 local SpeedLabel = Instance.new("TextLabel")
 SpeedLabel.Name = "SpeedLabel"
-SpeedLabel.Size = UDim2.new(0.4, -40, 1, 0)
-SpeedLabel.Position = UDim2.new(0, 45, 0, 0)
+SpeedLabel.Size = UDim2.new(0.4, -50, 0.5, 0)
+SpeedLabel.Position = UDim2.new(0, 55, 0, 5)
 SpeedLabel.BackgroundTransparency = 1
 SpeedLabel.Text = "Speed: 5"
 SpeedLabel.TextColor3 = Color3.fromRGB(220, 220, 255)
@@ -267,12 +408,12 @@ SpeedLabel.Parent = SpeedFrame
 
 local MinusButton = Instance.new("TextButton")
 MinusButton.Name = "MinusButton"
-MinusButton.Size = UDim2.new(0, 30, 0, 30)
-MinusButton.Position = UDim2.new(0.5, 0, 0.5, -15)
+MinusButton.Size = UDim2.new(0, 35, 0, 35)
+MinusButton.Position = UDim2.new(0.4, 0, 0.5, -17.5)
 MinusButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
 MinusButton.Text = "-"
 MinusButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-MinusButton.TextSize = 16
+MinusButton.TextSize = 18
 MinusButton.Font = Enum.Font.GothamBold
 MinusButton.Parent = SpeedFrame
 
@@ -287,17 +428,17 @@ MinusStroke.Parent = MinusButton
 
 local SpeedValue = Instance.new("TextButton")
 SpeedValue.Name = "SpeedValue"
-SpeedValue.Size = UDim2.new(0, 50, 0, 30)
-SpeedValue.Position = UDim2.new(0.65, 0, 0.5, -15)
+SpeedValue.Size = UDim2.new(0, 60, 0, 35)
+SpeedValue.Position = UDim2.new(0.6, 0, 0.5, -17.5)
 SpeedValue.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
 SpeedValue.Text = "5"
 SpeedValue.TextColor3 = Color3.fromRGB(220, 220, 255)
-SpeedValue.TextSize = 14
+SpeedValue.TextSize = 15
 SpeedValue.Font = Enum.Font.GothamBold
 SpeedValue.Parent = SpeedFrame
 
 local SpeedValueCorner = Instance.new("UICorner")
-SpeedValueCorner.CornerRadius = UDim.new(0, 6)
+SpeedValueCorner.CornerRadius = UDim.new(0, 8)
 SpeedValueCorner.Parent = SpeedValue
 
 local SpeedValueStroke = Instance.new("UIStroke")
@@ -307,12 +448,12 @@ SpeedValueStroke.Parent = SpeedValue
 
 local PlusButton = Instance.new("TextButton")
 PlusButton.Name = "PlusButton"
-PlusButton.Size = UDim2.new(0, 30, 0, 30)
-PlusButton.Position = UDim2.new(0.85, 0, 0.5, -15)
+PlusButton.Size = UDim2.new(0, 35, 0, 35)
+PlusButton.Position = UDim2.new(0.85, 0, 0.5, -17.5)
 PlusButton.BackgroundColor3 = Color3.fromRGB(60, 180, 80)
 PlusButton.Text = "+"
 PlusButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-PlusButton.TextSize = 16
+PlusButton.TextSize = 18
 PlusButton.Font = Enum.Font.GothamBold
 PlusButton.Parent = SpeedFrame
 
@@ -327,19 +468,19 @@ PlusStroke.Parent = PlusButton
 
 local SpeedInput = Instance.new("TextBox")
 SpeedInput.Name = "SpeedInput"
-SpeedInput.Size = UDim2.new(0, 50, 0, 30)
-SpeedInput.Position = UDim2.new(0.65, 0, 0.5, -15)
+SpeedInput.Size = UDim2.new(0, 60, 0, 35)
+SpeedInput.Position = UDim2.new(0.6, 0, 0.5, -17.5)
 SpeedInput.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
 SpeedInput.Text = ""
 SpeedInput.TextColor3 = Color3.fromRGB(220, 220, 255)
-SpeedInput.TextSize = 14
+SpeedInput.TextSize = 15
 SpeedInput.Font = Enum.Font.GothamBold
 SpeedInput.PlaceholderText = "Speed"
 SpeedInput.Visible = false
 SpeedInput.Parent = SpeedFrame
 
 local SpeedInputCorner = Instance.new("UICorner")
-SpeedInputCorner.CornerRadius = UDim.new(0, 6)
+SpeedInputCorner.CornerRadius = UDim.new(0, 8)
 SpeedInputCorner.Parent = SpeedInput
 
 local SpeedInputStroke = Instance.new("UIStroke")
@@ -348,7 +489,7 @@ SpeedInputStroke.Thickness = 2
 SpeedInputStroke.Parent = SpeedInput
 
 local UIElements = {
-    FullbrightButton.Parent, TPWalkButton.Parent, NoClipButton.Parent, InfiniteJumpButton.Parent, SpeedFrame
+    FullbrightButton.Parent, TPWalkButton.Parent, NoClipButton.Parent, InfiniteJumpButton.Parent, ESPButton.Parent, SpeedFrame
 }
 
 local function AnimateButton(button)
@@ -509,13 +650,13 @@ MinimizeButton.MouseButton1Click:Connect(function()
     AnimateButton(MinimizeButton)
     Minimized = not Minimized
     if Minimized then
-        MainFrame.Size = UDim2.new(0, 320, 0, 35)
+        MainFrame.Size = UDim2.new(0, 350, 0, 40)
         for _, element in pairs(UIElements) do
             if element then element.Visible = false end
         end
         SpeedInput.Visible = false
     else
-        MainFrame.Size = UDim2.new(0, 320, 0, 280)
+        MainFrame.Size = UDim2.new(0, 350, 0, 400)
         for _, element in pairs(UIElements) do
             if element then element.Visible = true end
         end
@@ -557,7 +698,7 @@ UserInputService.InputBegan:Connect(function(input)
         SpeedInput.Visible = false
         SpeedValue.Visible = true
     end
-end)
+end
 
 local function ToggleButton(button, setting)
     AnimateButton(button)
@@ -590,14 +731,76 @@ local function ToggleButton(button, setting)
     end
 end
 
+ESPButton.MouseButton1Click:Connect(function()
+    Settings.ESPEnabled = not Settings.ESPEnabled
+    ToggleButton(ESPButton, Settings.ESPEnabled)
+    
+    if Settings.ESPEnabled then
+        enableESP()
+    else
+        disableESP()
+    end
+end)
+
 FullbrightButton.MouseButton1Click:Connect(function()
     Settings.FullbrightEnabled = not Settings.FullbrightEnabled
     ToggleButton(FullbrightButton, Settings.FullbrightEnabled)
     SetFullbright(Settings.FullbrightEnabled)
 end)
 
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
+TPWalkButton.MouseButton1Click:Connect(function()
+    Settings.TPWalkEnabled = not Settings.TPWalkEnabled
+    ToggleButton(TPWalkButton, Settings.TPWalkEnabled)
+    SetupTPWalk()
+end)
+
+NoClipButton.MouseButton1Click:Connect(function()
+    Settings.NoClipEnabled = not Settings.NoClipEnabled
+    ToggleButton(NoClipButton, Settings.NoClipEnabled)
+    SetupNoClip()
+end)
+
+InfiniteJumpButton.MouseButton1Click:Connect(function()
+    Settings.InfiniteJumpEnabled = not Settings.InfiniteJumpEnabled
+    ToggleButton(InfiniteJumpButton, Settings.InfiniteJumpEnabled)
+    SetupInfiniteJump()
+end)
+
+MinusButton.MouseButton1Click:Connect(function()
+    AnimateButton(MinusButton)
+    if Settings.TPWalkSpeed > 0.5 then
+        if Settings.TPWalkSpeed == 1 then
+            Settings.TPWalkSpeed = 0.5
+        else
+            Settings.TPWalkSpeed = Settings.TPWalkSpeed - 1
+        end
+        UpdateSpeedDisplay()
+    end
+end)
+
+PlusButton.MouseButton1Click:Connect(function()
+    AnimateButton(PlusButton)
+    if Settings.TPWalkSpeed < 500 then
+        if Settings.TPWalkSpeed == 0.5 then
+            Settings.TPWalkSpeed = 1
+        else
+            Settings.TPWalkSpeed = Settings.TPWalkSpeed + 1
+        end
+        UpdateSpeedDisplay()
+    end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(newCharacter)
+    Character = newCharacter
+    Humanoid = Character:WaitForChild("Humanoid")
+    HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+    if Settings.TPWalkEnabled then SetupTPWalk() end
+    if Settings.NoClipEnabled then SetupNoClip() end
+    if Settings.ESPEnabled then
+        wait(1)
+        enableESP()
+    end
+end)
 
 local function ShowWelcomeMessage()
     local WelcomeGui = Instance.new("ScreenGui")
@@ -809,55 +1012,5 @@ local function ShowWelcomeMessage()
 end
 
 ShowWelcomeMessage()
-
-TPWalkButton.MouseButton1Click:Connect(function()
-    Settings.TPWalkEnabled = not Settings.TPWalkEnabled
-    ToggleButton(TPWalkButton, Settings.TPWalkEnabled)
-    SetupTPWalk()
-end)
-
-NoClipButton.MouseButton1Click:Connect(function()
-    Settings.NoClipEnabled = not Settings.NoClipEnabled
-    ToggleButton(NoClipButton, Settings.NoClipEnabled)
-    SetupNoClip()
-end)
-
-InfiniteJumpButton.MouseButton1Click:Connect(function()
-    Settings.InfiniteJumpEnabled = not Settings.InfiniteJumpEnabled
-    ToggleButton(InfiniteJumpButton, Settings.InfiniteJumpEnabled)
-    SetupInfiniteJump()
-end)
-
-MinusButton.MouseButton1Click:Connect(function()
-    AnimateButton(MinusButton)
-    if Settings.TPWalkSpeed > 0.5 then
-        if Settings.TPWalkSpeed == 1 then
-            Settings.TPWalkSpeed = 0.5
-        else
-            Settings.TPWalkSpeed = Settings.TPWalkSpeed - 1
-        end
-        UpdateSpeedDisplay()
-    end
-end)
-
-PlusButton.MouseButton1Click:Connect(function()
-    AnimateButton(PlusButton)
-    if Settings.TPWalkSpeed < 500 then
-        if Settings.TPWalkSpeed == 0.5 then
-            Settings.TPWalkSpeed = 1
-        else
-            Settings.TPWalkSpeed = Settings.TPWalkSpeed + 1
-        end
-        UpdateSpeedDisplay()
-    end
-end)
-
-LocalPlayer.CharacterAdded:Connect(function(newCharacter)
-    Character = newCharacter
-    Humanoid = Character:WaitForChild("Humanoid")
-    HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
-    if Settings.TPWalkEnabled then SetupTPWalk() end
-    if Settings.NoClipEnabled then SetupNoClip() end
-end)
 
 print("มึงจะรัน Script กูหาพ่อมึงหรอไอ่สัส กูให้มึงใช้ตอนไหน!")
