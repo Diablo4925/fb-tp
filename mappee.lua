@@ -698,7 +698,7 @@ UserInputService.InputBegan:Connect(function(input)
         SpeedInput.Visible = false
         SpeedValue.Visible = true
     end
-end
+end)
 
 local function ToggleButton(button, setting)
     AnimateButton(button)
